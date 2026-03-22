@@ -20,6 +20,15 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
 .hdr-text p{font-size:.7rem;opacity:.8;margin-top:1px}
 .hdr-acct{padding:5px 12px;background:var(--ku-gold);border:none;border-radius:20px;color:var(--ku-dark);font-size:.72rem;font-weight:700;text-decoration:none;white-space:nowrap}
 .hdr-acct:hover{opacity:.9}
+.model-switcher{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.12);padding:3px 4px;border-radius:20px;flex-shrink:0}
+.model-opt{padding:4px 10px;border-radius:16px;font-size:.68rem;font-weight:700;cursor:pointer;border:none;transition:all .25s;letter-spacing:.02em;white-space:nowrap}
+.model-opt.active-claude{background:#D97706;color:#fff;box-shadow:0 1px 6px rgba(217,119,6,.4)}
+.model-opt.active-gpt{background:#10A37F;color:#fff;box-shadow:0 1px 6px rgba(16,163,127,.4)}
+.model-opt:not([class*="active-"]){background:transparent;color:rgba(255,255,255,.6)}
+.model-opt:not([class*="active-"]):hover{color:#fff;background:rgba(255,255,255,.1)}
+.model-badge{display:inline-flex;align-items:center;gap:3px;font-size:.66rem;color:var(--mu);background:var(--bg);padding:2px 8px;border-radius:10px;margin-left:6px;font-weight:600;vertical-align:middle}
+.model-badge.claude-badge{color:#D97706;background:#FEF3C7}
+.model-badge.gpt-badge{color:#10A37F;background:#D1FAE5}
 .tabs{display:flex;background:#fff;border-bottom:2px solid var(--br);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .tabs::-webkit-scrollbar{display:none}
 .tab{padding:9px 14px;font-size:.76rem;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;color:var(--mu);transition:all .2s;flex-shrink:0}
@@ -115,6 +124,8 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
   .msg{max-width:95%}
   .confirm-btns{flex-direction:column}
   .cbtn{width:100%}
+  .model-switcher{padding:3px 4px}
+  .model-opt{padding:3px 7px;font-size:.62rem}
 }
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c4b5fd;border-radius:10px}
 </style>
@@ -125,6 +136,10 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
   <div class="hdr-text">
     <h1>Library AI Assistant</h1>
     <p>Khalifa University Libraries</p>
+  </div>
+  <div class="model-switcher">
+    <button class="model-opt active-claude" id="btnClaude" onclick="switchModel('claude')">Claude</button>
+    <button class="model-opt" id="btnGPT" onclick="switchModel('gpt')">ChatGPT</button>
   </div>
   <a class="hdr-acct" href="https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU&section=overview" target="_blank">👤 My Account</a>
 </header>
@@ -142,7 +157,8 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
     <div class="msgs" id="chatMsgs">
       <div class="msg bot"><div class="av">🤖</div><div class="bub">
         Hello! I'm the <strong>KU Library AI Assistant</strong> 👋<br><br>
-        I can help you find books and articles, answer library questions, and guide your research. Just ask in plain language!
+        I can help you find books and articles, answer library questions, and guide your research. Just ask in plain language!<br><br>
+        <span style="font-size:.75rem;color:var(--mu)">Switch between <strong style="color:#D97706">Claude</strong> and <strong style="color:#10A37F">ChatGPT</strong> using the toggle above.</span>
       </div></div>
     </div>
     <div class="chips" id="chips">
@@ -283,14 +299,76 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
 </div>
 
 <script>
-// ===== CONFIG — UPDATE THESE =====
-const CLAUDE_API = 'https://gentle-grass-ee53.nikeshn.workers.dev/claude'; // Your Cloudflare Worker
+// =================================================================
+// CONFIG — YOUR CLOUDFLARE WORKER URLS
+// Both /claude and /openai are handled by the SAME worker
+// =================================================================
+const WORKER_BASE = 'https://gentle-grass-ee53.nikeshn.workers.dev';
+const CLAUDE_API  = WORKER_BASE + '/claude';
+const OPENAI_API  = WORKER_BASE + '/openai';
+
 const VID        = '971KUOSTAR_INST:KU';
 const BASE       = 'https://khalifa.primo.exlibrisgroup.com/discovery/search';
 const AI_URL     = 'https://khalifa.primo.exlibrisgroup.com/discovery/researchAssistant?vid=971KUOSTAR_INST:KU&query=';
 const ERESOURCES = 'https://library.ku.ac.ae/eresources';
 
-// ===== TABS =====
+// =================================================================
+// MODEL STATE
+// =================================================================
+let activeModel = 'claude'; // 'claude' or 'gpt'
+
+function switchModel(model) {
+  activeModel = model;
+  document.getElementById('btnClaude').className = 'model-opt' + (model === 'claude' ? ' active-claude' : '');
+  document.getElementById('btnGPT').className    = 'model-opt' + (model === 'gpt'    ? ' active-gpt'    : '');
+}
+
+function getModelBadge() {
+  return activeModel === 'claude'
+    ? '<span class="model-badge claude-badge">Claude</span>'
+    : '<span class="model-badge gpt-badge">ChatGPT</span>';
+}
+
+// =================================================================
+// UNIFIED LLM CALL — handles both Claude & OpenAI formats
+// =================================================================
+async function callLLM({ system, messages, max_tokens }) {
+  max_tokens = max_tokens || 500;
+
+  if (activeModel === 'claude') {
+    // ---- Anthropic format ----
+    const body = { model: 'claude-sonnet-4-20250514', max_tokens, messages };
+    if (system) body.system = system;
+    const resp = await fetch(CLAUDE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (resp.status === 429) throw new Error('rate_limited');
+    if (!resp.ok) throw new Error('api_error');
+    const d = await resp.json();
+    return d.content?.[0]?.text || '';
+
+  } else {
+    // ---- OpenAI format ----
+    const oaiMessages = [];
+    if (system) oaiMessages.push({ role: 'system', content: system });
+    for (const m of messages) oaiMessages.push({ role: m.role, content: m.content });
+    const resp = await fetch(OPENAI_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens, messages: oaiMessages })
+    });
+    if (resp.status === 429) throw new Error('rate_limited');
+    if (!resp.ok) throw new Error('api_error');
+    const d = await resp.json();
+    return d.choices?.[0]?.message?.content || '';
+  }
+}
+
+// =================================================================
+// TABS
+// =================================================================
 function switchTab(t){
   ['chat','search','guides','services','eresources'].forEach((n,i)=>{
     document.querySelectorAll('.tab')[i].classList.toggle('active',n===t);
@@ -303,7 +381,9 @@ function switchTab(t){
   document.getElementById('panel-'+n).style.display=n==='chat'?'flex':'none';
 });
 
-// ===== PRIMO URL BUILDERS =====
+// =================================================================
+// PRIMO URL BUILDERS
+// =================================================================
 function yearFacet(yf,yt){if(!yf&&!yt)return null;return`searchcreationdate,include,${yf||'0001'}|,|${yt||'9999'}`;}
 function mkURL(bool,tab,scope,facets){
   let url=`${BASE}?query=any,contains,${encodeURIComponent(bool)},AND&tab=${tab}&search_scope=${scope}&vid=${VID}&lang=en&mode=advanced&offset=0`;
@@ -324,13 +404,13 @@ function buildSearchCard(bool,explanation,corrected,raw,yf,yt,pr,oa,ol){
   return`<div class="scard"><div class="scard-title">🔍 PRIMO Search</div>${corrNote}<div style="font-size:.74rem;color:var(--mu);font-style:italic;margin-bottom:4px">${explanation}</div><div class="bool-str">${bool}</div>${filters?`<div style="font-size:.72rem;color:var(--ku-gold);margin-bottom:6px;font-weight:600">${filters}</div>`:''}<div class="slinks"><a class="slink all" href="${urlAll}" target="_blank">📚 All Resources</a><a class="slink art" href="${urlArt}" target="_blank">📄 Articles & Papers</a><a class="slink bk" href="${urlBk}" target="_blank">📗 Books</a><a class="slink ai" href="${urlAI}" target="_blank">🤖 PRIMO AI Research Assistant</a></div></div>`;
 }
 
-// ===== BOOLEAN BUILDER =====
+// =================================================================
+// BOOLEAN BUILDER
+// =================================================================
 async function buildBoolean(query,history){
   const context=history.slice(-6).map(m=>`${m.role}: ${m.content}`).join('\n');
-  const resp=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,messages:[{role:'user',content:`Fix spelling and build a PRIMO advanced search Boolean query.\n\nConversation context:\n${context}\n\nCurrent request: "${query}"\n\nUse context to understand the full topic. Return ONLY raw JSON (no markdown):\n{"corrected":"fixed input","boolean":"(term OR term) AND (term OR term)","natural":"friendly 1-2 sentence description","type":"articles|books|all","year_from":"YYYY or empty","year_to":"YYYY or empty","peer_reviewed":false,"open_access":false,"online_only":false,"explanation":"one sentence"}\n\nRules: AND between concepts, OR between synonyms, parentheses, double quotes for phrases, 2-3 concepts, 2-3 synonyms each.`}]})});
-  if(resp.status===429)throw new Error('rate_limited');
-  if(!resp.ok)throw new Error('api_error');
-  const d=await resp.json();const txt=d.content?.[0]?.text||'';
+  const prompt=`Fix spelling and build a PRIMO advanced search Boolean query.\n\nConversation context:\n${context}\n\nCurrent request: "${query}"\n\nUse context to understand the full topic. Return ONLY raw JSON (no markdown):\n{"corrected":"fixed input","boolean":"(term OR term) AND (term OR term)","natural":"friendly 1-2 sentence description","type":"articles|books|all","year_from":"YYYY or empty","year_to":"YYYY or empty","peer_reviewed":false,"open_access":false,"online_only":false,"explanation":"one sentence"}\n\nRules: AND between concepts, OR between synonyms, parentheses, double quotes for phrases, 2-3 concepts, 2-3 synonyms each.`;
+  const txt=await callLLM({messages:[{role:'user',content:prompt}],max_tokens:500});
   const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
   if(s===-1)throw new Error('no_json');
   return JSON.parse(txt.substring(s,e+1));
@@ -341,40 +421,47 @@ function fallbackExtract(q){
   return{boolean:bool,corrected:q,natural:'Searching for: '+bool,explanation:'Basic extraction',year_from:yfM?.[1]||'',year_to:ytM?.[1]||'',peer_reviewed:/peer.?review|scholarly/i.test(q),open_access:/open.?access/i.test(q),online_only:false,type:'all'};
 }
 
-// ===== DB LIST =====
+// =================================================================
+// DB LIST & REGEX MATCHERS
+// =================================================================
 const DB_LIST=['sciencedirect','science direct','ieee','scopus','web of science','springer','nature journal','wiley','taylor francis','taylor & francis','pubmed','embase','cinahl','clinicalkey','cochrane','uptodate','up to date','acm digital','scifinder','scival','jstor','proquest','emerald','knovel','ebsco','elsevier','ebook central','ovid','refworks','mathscinet','jove','astm','asce','asme','arxiv','zendy','mdpi','lecturio','linkedin learning','al manhal','almanhal','rsc journal','earthdoc','onepetro','optica','iopscience','cambridge core','oxford reference','business source','academic search','engineering source','applied science','inspec','georef','aiaa','aip journal','aps journal','medline','health research','database','e-resource','eresource'];
 function isDBQuery(msg){const l=msg.toLowerCase();return DB_LIST.some(d=>l.includes(d));}
-
-// ===== ROUTER =====
 const SEARCH_RE=/\b(find|search for|look for|show me|get me|i need|i want)\b.*(article|book|paper|journal|research|literature|publication)/i;
 const LIBRARY_RE=/room|booking|reserve|hours|open|closed|ill|interlibrary|loan|account|fine|fee|renew|return|borrow|orcid|khazna|open access|publish|apc|newsletter|tour|visit|alumni|ask a librarian|contact/i;
+
+// =================================================================
+// ROUTER
+// =================================================================
 async function routeQuery(msg,history){
   if(isDBQuery(msg))return'library';
   if(SEARCH_RE.test(msg))return'search';
   if(LIBRARY_RE.test(msg))return'library';
   try{
     const context=history.slice(-4).map(m=>`${m.role}: ${m.content}`).join('\n');
-    const r=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:100,messages:[{role:'user',content:`Route this library chatbot message. Context:\n${context}\n\nMessage: "${msg}"\n\nReturn ONLY: {"intent":"search|library|general|clarify"}\n\nsearch=find books/articles, library=services/rooms/hours/ILL/account, general=factual question, clarify=ambiguous topic`}]})});
-    const d=await r.json();const txt=d.content?.[0]?.text||'';
+    const prompt=`Route this library chatbot message. Context:\n${context}\n\nMessage: "${msg}"\n\nReturn ONLY: {"intent":"search|library|general|clarify"}\n\nsearch=find books/articles, library=services/rooms/hours/ILL/account, general=factual question, clarify=ambiguous topic`;
+    const txt=await callLLM({messages:[{role:'user',content:prompt}],max_tokens:100});
     const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
     return JSON.parse(txt.substring(s,e+1)).intent||'general';
   }catch(e){return'general';}
 }
 
-// ===== AGENTS =====
+// =================================================================
+// AGENTS
+// =================================================================
 const LIBRARY_SYS=`You are the KU Library Assistant. Answer library service questions in 2-3 sentences with relevant links. NEVER mention proxy, on-campus or off-campus. For any database question always say: see https://library.ku.ac.ae/eresources\nServices: Rooms: https://library.ku.ac.ae/rooms/ | ILL: https://library.ku.ac.ae/ill/ | Account: https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU | OA: https://library.ku.ac.ae/oa/ | Ask: https://library.ku.ac.ae/AskUs`;
 const GENERAL_SYS=`You are a knowledgeable assistant. Answer factually in 3-5 sentences. End with: "Would you like me to find books or articles on this topic from KU Library?"`;
+
 async function callAgent(sys,history){
-  const r=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,system:sys,messages:history})});
-  if(!r.ok)throw new Error('agent_error');
-  const d=await r.json();return d.content?.[0]?.text||'';
+  return await callLLM({system:sys,messages:history,max_tokens:300});
 }
 
-// ===== CHAT =====
+// =================================================================
+// CHAT
+// =================================================================
 let chatHist=[];
 function clearChat(){
   chatHist=[];
-  document.getElementById('chatMsgs').innerHTML=`<div class="msg bot"><div class="av">🤖</div><div class="bub">Hello! I'm the <strong>KU Library AI Assistant</strong> 👋<br><br>Ask me anything — for books and articles I'll build a smart Boolean search and open PRIMO for you instantly!</div></div>`;
+  document.getElementById('chatMsgs').innerHTML=`<div class="msg bot"><div class="av">🤖</div><div class="bub">Hello! I'm the <strong>KU Library AI Assistant</strong> 👋<br><br>Ask me anything — for books and articles I'll build a smart Boolean search and open PRIMO for you instantly!<br><br><span style="font-size:.75rem;color:var(--mu)">Switch between <strong style="color:#D97706">Claude</strong> and <strong style="color:#10A37F">ChatGPT</strong> using the toggle above.</span></div></div>`;
   document.getElementById('chips').style.display='flex';
 }
 async function sendChat(){
@@ -385,7 +472,7 @@ async function sendChat(){
   const cm=document.getElementById('chatMsgs');
   chatHist.push({role:'user',content:String(msg)});
   if(isDBQuery(msg)){
-    addMsg('bot',`For all KU Library databases and access links, visit:<br><br>📋 <a href="${ERESOURCES}" target="_blank"><strong>library.ku.ac.ae/eresources</strong></a>`);
+    addMsg('bot',`For all KU Library databases and access links, visit:<br><br>📋 <a href="${ERESOURCES}" target="_blank"><strong>library.ku.ac.ae/eresources</strong></a> ${getModelBadge()}`);
     chatHist.push({role:'assistant',content:`See ${ERESOURCES}`});
     showFollowUps('library');return;
   }
@@ -398,33 +485,34 @@ async function sendChat(){
     document.getElementById(tid)?.remove();
     if(intent==='search'){
       const loadEl=document.createElement('div');loadEl.className='msg bot';loadEl.style.maxWidth='96%';
-      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="typing" style="padding:8px 0"><span></span><span></span><span></span></div><div style="font-size:.8rem;color:var(--mu)">Building search query…</div></div>`;
+      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="typing" style="padding:8px 0"><span></span><span></span><span></span></div><div style="font-size:.8rem;color:var(--mu)">Building search query… ${getModelBadge()}</div></div>`;
       cm.appendChild(loadEl);cm.scrollTop=cm.scrollHeight;
       let p;try{p=await buildBoolean(msg,chatHist);}catch(e){p=fallbackExtract(msg);}
       const{boolean:bool,corrected,natural,explanation,year_from:yf,year_to:yt,peer_reviewed:pr,open_access:oa,online_only:ol}=p;
       const confirmId='c'+Date.now();
       const filters=[pr?'🔬 Peer Reviewed':'',oa?'🔓 Open Access':'',(yf||yt)?`📅 ${yf||'any'}–${yt||'now'}`:''].filter(Boolean).join(' · ');
-      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="scard-title">🤔 Is this what you're looking for?</div><div class="confirm-box">${natural||explanation}</div><div style="font-size:.72rem;font-weight:700;color:var(--mu);margin-bottom:3px">Boolean query:</div><div class="bool-str">${bool}</div>${filters?`<div style="font-size:.72rem;color:var(--ku-gold);font-weight:600;margin-bottom:4px">${filters}</div>`:''}<div class="confirm-btns"><button class="cbtn yes" onclick="confirmSearch('${confirmId}')">✅ Yes, search this</button><button class="cbtn refine" onclick="refineSearch('${confirmId}')">✏️ Refine query</button></div><div id="${confirmId}_links"></div></div>`;
+      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="scard-title">🤔 Is this what you're looking for? ${getModelBadge()}</div><div class="confirm-box">${natural||explanation}</div><div style="font-size:.72rem;font-weight:700;color:var(--mu);margin-bottom:3px">Boolean query:</div><div class="bool-str">${bool}</div>${filters?`<div style="font-size:.72rem;color:var(--ku-gold);font-weight:600;margin-bottom:4px">${filters}</div>`:''}<div class="confirm-btns"><button class="cbtn yes" onclick="confirmSearch('${confirmId}')">✅ Yes, search this</button><button class="cbtn refine" onclick="refineSearch('${confirmId}')">✏️ Refine query</button></div><div id="${confirmId}_links"></div></div>`;
       window._ps=window._ps||{};window._ps[confirmId]={bool,explanation,natural,corrected,msg,yf,yt,pr,oa,ol};
       chatHist.push({role:'assistant',content:`I interpreted your search as: ${natural||explanation}`});
       cm.scrollTop=cm.scrollHeight;showFollowUps('search');
     }else if(intent==='library'){
       const reply=await callAgent(LIBRARY_SYS,chatHist);
-      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply));showFollowUps('library');
+      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply)+' '+getModelBadge());showFollowUps('library');
     }else if(intent==='clarify'){
       const topic=msg.replace(/\b(what is|tell me about|explain|about|i want to know)\b/gi,'').trim()||msg;
-      const html=`I can help with <strong>${topic}</strong>! What would you like?<div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><button onclick="chip('Find articles and books on ${topic}')" style="padding:8px 12px;background:var(--ku-blue);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🔍 Find in KU Library</button><button onclick="chip('Explain ${topic} in detail')" style="padding:8px 12px;background:#f0f4f8;color:var(--ku-blue);border:1.5px solid var(--ku-blue);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">💡 Give me a general explanation</button><button onclick="chip('What KU databases cover ${topic}')" style="padding:8px 12px;background:#fff;color:var(--mu);border:1.5px solid var(--br);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🗄️ Which KU databases cover this?</button></div>`;
+      const html=`I can help with <strong>${topic}</strong>! What would you like? ${getModelBadge()}<div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><button onclick="chip('Find articles and books on ${topic}')" style="padding:8px 12px;background:var(--ku-blue);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🔍 Find in KU Library</button><button onclick="chip('Explain ${topic} in detail')" style="padding:8px 12px;background:#f0f4f8;color:var(--ku-blue);border:1.5px solid var(--ku-blue);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">💡 Give me a general explanation</button><button onclick="chip('What KU databases cover ${topic}')" style="padding:8px 12px;background:#fff;color:var(--mu);border:1.5px solid var(--br);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🗄️ Which KU databases cover this?</button></div>`;
       chatHist.push({role:'assistant',content:`What would you like to know about ${topic}?`});
       const el=document.createElement('div');el.className='msg bot';
       el.innerHTML=`<div class="av">🤖</div><div class="bub">${html}</div>`;
       cm.appendChild(el);cm.scrollTop=cm.scrollHeight;
     }else{
       const reply=await callAgent(GENERAL_SYS,chatHist);
-      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply));showFollowUps('general');
+      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply)+' '+getModelBadge());showFollowUps('general');
     }
   }catch(e){
     document.getElementById(tid)?.remove();
-    addMsg('bot','⚠️ Connection error. Please try again.');
+    const errMsg=e.message==='rate_limited'?'⚠️ Rate limited — please wait a moment and try again.':'⚠️ Connection error. Please try again.';
+    addMsg('bot',errMsg);
   }
 }
 function confirmSearch(id){
@@ -457,7 +545,9 @@ function addMsg(role,html){
 }
 function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>').replace(/\n/g,'<br>');}
 
-// ===== SEARCH TAB =====
+// =================================================================
+// SEARCH TAB
+// =================================================================
 async function doSearch(){
   const q=document.getElementById('sIn').value.trim();
   if(!q){alert('Please enter a search term');return;}
@@ -474,7 +564,9 @@ async function doSearch(){
   document.getElementById('sResults').innerHTML=buildSearchCard(p.boolean||q,p.explanation||'',p.corrected||q,q,yf,yt,pr,oa,ol);
 }
 
-// ===== E-RESOURCES =====
+// =================================================================
+// E-RESOURCES
+// =================================================================
 const dbs=[
   {l:'A',name:'Academic Search Ultimate',desc:'10,000+ academic journals across sciences, arts and social sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=asn'},
   {l:'A',name:'ACM Digital Library',desc:'Full-text ACM publications — journals, conference proceedings and books.',url:'https://khalifa.idm.oclc.org/login?url=http://dl.acm.org'},
