@@ -344,8 +344,11 @@ async function callLLM({ system, messages, max_tokens }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    if (resp.status === 429) throw new Error('rate_limited');
-    if (!resp.ok) throw new Error('api_error');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const msg = err?.error?.message || `Claude API error ${resp.status}`;
+      throw new Error(msg);
+    }
     const d = await resp.json();
     return d.content?.[0]?.text || '';
 
@@ -359,8 +362,11 @@ async function callLLM({ system, messages, max_tokens }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens, messages: oaiMessages })
     });
-    if (resp.status === 429) throw new Error('rate_limited');
-    if (!resp.ok) throw new Error('api_error');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const msg = err?.error?.message || `OpenAI API error ${resp.status}`;
+      throw new Error(msg);
+    }
     const d = await resp.json();
     return d.choices?.[0]?.message?.content || '';
   }
@@ -511,8 +517,7 @@ async function sendChat(){
     }
   }catch(e){
     document.getElementById(tid)?.remove();
-    const errMsg=e.message==='rate_limited'?'⚠️ Rate limited — please wait a moment and try again.':'⚠️ Connection error. Please try again.';
-    addMsg('bot',errMsg);
+    addMsg('bot',`⚠️ <strong>Error (${activeModel==='claude'?'Claude':'ChatGPT'}):</strong> ${e.message}<br><span style="font-size:.75rem;color:var(--mu)">Try switching models or check your API key.</span>`);
   }
 }
 function confirmSearch(id){
