@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>KU Library AI Assistant</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ku-gold:#C8A951;--ku-dark:#1A1A2E;--ku-blue:#003366;
+  --p:#003366;--s:#C8A951;--t:#0EA5E9;--bg:#F0F4F8;
+  --txt:#1a1a2e;--mu:#6b7280;--br:#d1d5db;--white:#fff;
+  --card:#fff;--radius:14px
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--txt);height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 12px rgba(0,51,102,.4);flex-shrink:0}
+.hdr-logo{width:42px;height:42px;background:var(--ku-gold);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:1rem;color:var(--ku-dark);flex-shrink:0;letter-spacing:-1px}
+.hdr-text{flex:1}
+.hdr-text h1{font-size:1rem;font-weight:700;line-height:1.2}
+.hdr-text p{font-size:.7rem;opacity:.8;margin-top:1px}
+.hdr-acct{padding:5px 12px;background:var(--ku-gold);border:none;border-radius:20px;color:var(--ku-dark);font-size:.72rem;font-weight:700;text-decoration:none;white-space:nowrap}
+.hdr-acct:hover{opacity:.9}
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--br);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:9px 14px;font-size:.76rem;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;color:var(--mu);transition:all .2s;flex-shrink:0}
+.tab.active{color:var(--ku-blue);border-bottom-color:var(--ku-gold)}
+.tab:hover:not(.active){color:var(--ku-blue);background:var(--bg)}
+.panels{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.active{display:flex}
+.msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;align-items:flex-start;max-width:90%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.msg.bot .av{background:var(--ku-blue);color:#fff}
+.msg.user .av{background:var(--ku-gold);color:var(--ku-dark)}
+.bub{padding:9px 13px;border-radius:16px;font-size:.86rem;line-height:1.6}
+.msg.bot .bub{background:#fff;border:1px solid var(--br);border-top-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.msg.user .bub{background:var(--ku-blue);color:#fff;border-top-right-radius:4px}
+.typing{display:flex;gap:4px;align-items:center;padding:4px 0}
+.typing span{width:6px;height:6px;background:var(--ku-gold);border-radius:50%;animation:bounce 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+.followups{display:flex;flex-wrap:wrap;gap:5px;padding:2px 12px 8px 50px}
+.fq{padding:4px 10px;border-radius:20px;font-size:.72rem;border:1.5px solid var(--ku-blue);color:var(--ku-blue);cursor:pointer;background:#fff;transition:all .2s}
+.fq:hover{background:var(--ku-blue);color:#fff}
+.cin{padding:10px 12px;background:#fff;border-top:1px solid var(--br);display:flex;gap:7px;align-items:center}
+.cin input{flex:1;padding:9px 13px;border:2px solid var(--br);border-radius:24px;font-size:.86rem;outline:none;transition:border .2s;min-width:0}
+.cin input:focus{border-color:var(--ku-blue)}
+.send{width:38px;height:38px;border-radius:50%;background:var(--ku-blue);color:#fff;border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.clr{padding:5px 9px;background:var(--bg);border:1.5px solid var(--br);border-radius:16px;font-size:.7rem;color:var(--mu);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px 4px}
+.chip{padding:5px 11px;border-radius:20px;font-size:.74rem;border:1.5px solid var(--ku-blue);color:var(--ku-blue);cursor:pointer;background:#fff;transition:all .2s;white-space:nowrap}
+.chip:hover{background:var(--ku-blue);color:#fff}
+.scard{background:#fff;border-radius:12px;padding:14px;border:1px solid var(--br);box-shadow:0 2px 8px rgba(0,51,102,.08);width:100%}
+.scard-title{font-weight:700;font-size:.86rem;color:var(--ku-blue);margin-bottom:4px}
+.bool-str{font-family:monospace;background:var(--ku-dark);color:var(--ku-gold);padding:6px 10px;border-radius:8px;font-size:.76rem;margin:6px 0;word-break:break-all}
+.slinks{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.slink{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;text-decoration:none;font-size:.82rem;font-weight:600;transition:all .2s}
+.slink:hover{opacity:.85;transform:translateX(2px)}
+.slink.all{background:var(--ku-blue);color:#fff}
+.slink.art{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+.slink.bk{background:#ede9fe;color:var(--ku-blue);border:1px solid #c4b5fd}
+.slink.ai{background:linear-gradient(135deg,var(--ku-gold),var(--ku-blue));color:#fff}
+.confirm-box{background:#f0f4f8;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.84rem;color:var(--txt);line-height:1.6;border-left:3px solid var(--ku-gold)}
+.confirm-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.cbtn{padding:7px 16px;border-radius:10px;border:none;cursor:pointer;font-size:.8rem;font-weight:700}
+.cbtn.yes{background:var(--ku-blue);color:#fff}
+.cbtn.refine{background:#fff;color:var(--ku-blue);border:1.5px solid var(--ku-blue)}
+.sarea{padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1}
+.nl-box{background:#fff;border-radius:var(--radius);padding:14px;border:1px solid var(--br)}
+.nl-box label{font-size:.8rem;font-weight:700;color:var(--txt);display:block;margin-bottom:8px}
+.nl-row{display:flex;gap:7px}
+.nl-row input{flex:1;padding:10px 14px;border:2px solid var(--br);border-radius:12px;font-size:.88rem;outline:none;min-width:0}
+.nl-row input:focus{border-color:var(--ku-blue)}
+.go{padding:10px 18px;background:var(--ku-blue);color:#fff;border:none;border-radius:12px;cursor:pointer;font-weight:700;font-size:.86rem;flex-shrink:0}
+.tog-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.tog{display:flex;align-items:center;gap:4px;font-size:.76rem;color:var(--mu);cursor:pointer}
+.tog input{accent-color:var(--ku-blue)}
+.yr{width:65px;padding:5px 7px;border:1.5px solid var(--br);border-radius:8px;font-size:.78rem;text-align:center;outline:none}
+.yr:focus{border-color:var(--ku-blue)}
+.sstatus{font-size:.8rem;color:var(--mu);padding:4px 0;min-height:18px}
+.barea{padding:12px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px}
+.banner{border-radius:var(--radius);padding:14px;color:#fff;text-align:center}
+.banner h3{font-size:.95rem;font-weight:700;margin-bottom:4px}
+.banner p{font-size:.78rem;opacity:.9;margin-bottom:10px;line-height:1.5}
+.banner a{display:inline-block;padding:7px 20px;background:#fff;border-radius:20px;font-weight:700;font-size:.82rem;text-decoration:none}
+.bcard{background:#fff;border-radius:var(--radius);padding:14px;border:1px solid var(--br)}
+.bcard h3{font-size:.88rem;font-weight:700;margin-bottom:10px;color:var(--ku-blue)}
+.ll a{display:block;padding:7px 0;font-size:.82rem;color:var(--t);text-decoration:none;border-bottom:1px solid var(--br)}
+.ll a:last-child{border-bottom:none}.ll a:hover{color:var(--ku-blue)}
+.guides-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.guide-card{background:#fff;border-radius:10px;padding:10px;border:1px solid var(--br);text-decoration:none;transition:all .2s;display:block}
+.guide-card:hover{border-color:var(--ku-blue);box-shadow:0 2px 8px rgba(0,51,102,.1)}
+.guide-card .icon{font-size:1.4rem;margin-bottom:4px}
+.guide-card .name{font-size:.78rem;font-weight:700;color:var(--ku-blue);line-height:1.3}
+.guide-card .desc{font-size:.7rem;color:var(--mu);margin-top:2px;line-height:1.3}
+.hours-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.hours-card{background:var(--bg);border-radius:10px;padding:10px 12px;border:1px solid var(--br);font-size:.8rem}
+.hours-card .day{font-weight:700;color:var(--ku-blue);margin-bottom:2px}
+.hours-card .time{color:var(--mu)}
+.era{padding:12px;overflow-y:auto;flex:1}
+.abar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.abtn{width:26px;height:26px;border-radius:7px;border:1.5px solid var(--br);background:#fff;font-size:.72rem;font-weight:700;cursor:pointer;color:var(--txt);display:flex;align-items:center;justify-content:center;transition:all .15s}
+.abtn:hover,.abtn.active{background:var(--ku-blue);color:#fff;border-color:var(--ku-blue)}
+.dg{margin-bottom:14px}
+.dg h2{font-size:.95rem;font-weight:800;color:var(--ku-blue);margin-bottom:7px;padding-bottom:3px;border-bottom:2px solid var(--bg)}
+.di{background:#fff;border-radius:9px;padding:9px 12px;margin-bottom:5px;border:1px solid var(--br)}
+.di h4{font-size:.82rem;font-weight:700}.di p{font-size:.75rem;color:var(--mu);margin-top:2px;line-height:1.4}
+.di a{font-size:.72rem;color:var(--t);display:inline-block;margin-top:3px}
+@media(max-width:480px){
+  .hdr-text h1{font-size:.9rem}
+  .guides-grid{grid-template-columns:1fr}
+  .hours-grid{grid-template-columns:1fr}
+  .msg{max-width:95%}
+  .confirm-btns{flex-direction:column}
+  .cbtn{width:100%}
+}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c4b5fd;border-radius:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr-logo">KU</div>
+  <div class="hdr-text">
+    <h1>Library AI Assistant</h1>
+    <p>Khalifa University Libraries</p>
+  </div>
+  <a class="hdr-acct" href="https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU&section=overview" target="_blank">👤 My Account</a>
+</header>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('chat')">🤖 KU Library AI</div>
+  <div class="tab" onclick="switchTab('search')">🔍 Search</div>
+  <div class="tab" onclick="switchTab('guides')">📚 Guides & Hours</div>
+  <div class="tab" onclick="switchTab('services')">🏛️ Services</div>
+  <div class="tab" onclick="switchTab('eresources')">🗄️ Databases</div>
+</div>
+<div class="panels">
+
+  <!-- CHAT -->
+  <div class="panel active" id="panel-chat">
+    <div class="msgs" id="chatMsgs">
+      <div class="msg bot"><div class="av">🤖</div><div class="bub">
+        Hello! I'm the <strong>KU Library AI Assistant</strong> 👋<br><br>
+        I can help you find books and articles, answer library questions, and guide your research. Just ask in plain language!
+      </div></div>
+    </div>
+    <div class="chips" id="chips">
+      <div class="chip" onclick="chip('Find peer reviewed articles on AI in healthcare')">🤖 AI in healthcare</div>
+      <div class="chip" onclick="chip('I need books on renewable energy')">⚡ Renewable energy</div>
+      <div class="chip" onclick="chip('Find open access articles on climate change')">🔓 Open access</div>
+      <div class="chip" onclick="chip('How do I publish open access at KU?')">📤 OA publishing</div>
+      <div class="chip" onclick="chip('How do I reserve a study room?')">🚪 Book a room</div>
+    </div>
+    <div class="cin">
+      <button class="clr" onclick="clearChat()">🗑️ Clear</button>
+      <input type="text" id="chatIn" placeholder="Ask me anything…" onkeydown="if(event.key==='Enter')sendChat()" />
+      <button class="send" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="panel" id="panel-search">
+    <div class="sarea">
+      <div class="nl-box">
+        <label>🔍 Smart Search — AI builds Boolean query for PRIMO</label>
+        <div class="nl-row">
+          <input type="text" id="sIn" placeholder='e.g. "AI in education from 2022 peer reviewed"' onkeydown="if(event.key==='Enter')doSearch()" />
+          <button class="go" onclick="doSearch()">Search</button>
+        </div>
+        <div class="tog-row">
+          <label class="tog"><input type="checkbox" id="sPR"> 🔬 Peer Reviewed</label>
+          <label class="tog"><input type="checkbox" id="sOA"> 🔓 Open Access</label>
+          <label class="tog"><input type="checkbox" id="sOL"> 🌐 Online Only</label>
+          <span style="font-size:.76rem;color:var(--mu)">📅</span>
+          <input class="yr" type="text" id="sYF" placeholder="From">
+          <span style="font-size:.76rem;color:var(--mu)">–</span>
+          <input class="yr" type="text" id="sYT" placeholder="To">
+        </div>
+      </div>
+      <div class="sstatus" id="sStatus"></div>
+      <div id="sResults"></div>
+    </div>
+  </div>
+
+  <!-- GUIDES & HOURS -->
+  <div class="panel" id="panel-guides">
+    <div class="barea">
+      <div class="bcard">
+        <h3>⏰ Library Hours</h3>
+        <div style="background:#fff3cd;border-radius:10px;padding:10px 12px;font-size:.82rem;color:#856404;margin-bottom:10px;border-left:3px solid var(--ku-gold)">
+          ⚠️ Both physical library branches are currently closed due to campus network issues. All electronic resources are accessible online.
+        </div>
+        <div class="hours-grid">
+          <div class="hours-card"><div class="day">Sunday</div><div class="time">8:00 AM – 9:00 PM</div></div>
+          <div class="hours-card"><div class="day">Monday</div><div class="time">8:00 AM – 9:00 PM</div></div>
+          <div class="hours-card"><div class="day">Tuesday</div><div class="time">8:00 AM – 9:00 PM</div></div>
+          <div class="hours-card"><div class="day">Wednesday</div><div class="time">8:00 AM – 9:00 PM</div></div>
+          <div class="hours-card"><div class="day">Thursday</div><div class="time">8:00 AM – 6:00 PM</div></div>
+          <div class="hours-card"><div class="day">Friday</div><div class="time">Closed</div></div>
+          <div class="hours-card"><div class="day">Saturday</div><div class="time">10:00 AM – 6:00 PM</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:.78rem;color:var(--mu)">
+          📅 <a href="https://kustar.libcal.com/calendar/events/" target="_blank" style="color:var(--t)">Library Events Calendar</a> &nbsp;|&nbsp;
+          <a href="https://library.ku.ac.ae/AskUs" target="_blank" style="color:var(--t)">Ask a Librarian</a>
+        </div>
+      </div>
+      <div class="bcard">
+        <h3>📚 Subject & Research Guides (LibGuides)</h3>
+        <p style="font-size:.78rem;color:var(--mu);margin-bottom:10px">Expert guides curated by KU librarians for your subject area</p>
+        <div class="guides-grid">
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">🔬</div><div class="name">All Subject Guides</div><div class="desc">Browse all research guides</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">⚙️</div><div class="name">Engineering</div><div class="desc">Resources for engineering research</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">🏥</div><div class="name">Medicine & Health</div><div class="desc">Clinical & health sciences resources</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">💻</div><div class="name">Computing & AI</div><div class="desc">Technology & computer science guides</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">⚗️</div><div class="name">Chemistry</div><div class="desc">Chemistry databases & guides</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/gds/" target="_blank"><div class="icon">📊</div><div class="name">Research Skills</div><div class="desc">Citing, searching & writing guides</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/oa/" target="_blank"><div class="icon">🔓</div><div class="name">Open Access</div><div class="desc">Publishing & OA policies</div></a>
+          <a class="guide-card" href="https://library.ku.ac.ae/orcid" target="_blank"><div class="icon">🆔</div><div class="name">ORCiD & Impact</div><div class="desc">Researcher identity & metrics</div></a>
+        </div>
+        <a href="https://library.ku.ac.ae/gds/" target="_blank" style="display:block;margin-top:10px;text-align:center;padding:8px;background:var(--ku-blue);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:.82rem">View All LibGuides →</a>
+      </div>
+      <div class="banner" style="background:linear-gradient(135deg,var(--ku-blue),#0EA5E9)">
+        <h3>🤖 PRIMO AI Research Assistant</h3>
+        <p>Use KU's built-in AI tool for intelligent research discovery across all library materials</p>
+        <a href="https://khalifa.primo.exlibrisgroup.com/discovery/researchAssistant?vid=971KUOSTAR_INST%3AKU" target="_blank" style="color:var(--ku-blue)">Launch PRIMO AI →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICES -->
+  <div class="panel" id="panel-services">
+    <div class="barea">
+      <div class="banner" style="background:var(--ku-blue)">
+        <h3>📋 My Library Account</h3>
+        <p>View loans, renewals, requests, fines & fees</p>
+        <a href="https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU&section=overview" target="_blank" style="color:var(--ku-blue)">Open My Account →</a>
+      </div>
+      <div class="banner" style="background:linear-gradient(135deg,#0284C7,#0EA5E9)">
+        <h3>🔓 Open Access Support</h3>
+        <p>APC funding, OA policies, and where to publish your research openly</p>
+        <a href="https://library.ku.ac.ae/oa/" target="_blank" style="color:#0284C7">Open Access Publishing →</a>
+      </div>
+      <div class="bcard">
+        <h3>🔗 All Library Services</h3>
+        <div class="ll">
+          <a href="https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU&section=overview" target="_blank">📋 My Library Account (PRIMO)</a>
+          <a href="https://library.ku.ac.ae/oa/" target="_blank">🔓 Open Access Publishing Support</a>
+          <a href="https://library.ku.ac.ae/ill/" target="_blank">📬 Interlibrary Loan (ILL)</a>
+          <a href="https://library.ku.ac.ae/rooms/" target="_blank">🚪 Reserve a Study Room</a>
+          <a href="https://library.ku.ac.ae/requesttitle/" target="_blank">📥 Request New Material</a>
+          <a href="https://library.ku.ac.ae/AskUs" target="_blank">💬 Ask a Librarian</a>
+          <a href="https://library.ku.ac.ae/google" target="_blank">🎓 Google Scholar @ KU</a>
+          <a href="https://library.ku.ac.ae/orcid" target="_blank">🆔 ORCiD Guide</a>
+          <a href="https://khazna.ku.ac.ae/" target="_blank">🗄️ Khazna Institutional Repository</a>
+          <a href="https://kustar.libcal.com/calendar/events/" target="_blank">📅 Library Events</a>
+          <a href="https://library.ku.ac.ae/newsletter/" target="_blank">📰 Bookends Newsletter</a>
+          <a href="https://library.ku.ac.ae/med/" target="_blank">🏥 Medical Library</a>
+          <a href="https://library.ku.ac.ae/alumni/" target="_blank">🎓 Alumni Library Services</a>
+          <a href="https://library.ku.ac.ae/InstructionAndTours" target="_blank">🗺️ Library Tours & Instruction</a>
+          <a href="https://library.ku.ac.ae/visitors/" target="_blank">🙋 Library Visitor Registration</a>
+          <a href="https://library.ku.ac.ae/comments/" target="_blank">💡 Comments & Suggestions</a>
+        </div>
+      </div>
+      <div class="bcard">
+        <h3>⏰ Library Notice</h3>
+        <p style="font-size:.82rem;color:var(--mu);line-height:1.6">Both physical library branches are currently closed. All e-resources are accessible online.<br>
+        Help: <a href="https://library.ku.ac.ae/AskUs" target="_blank" style="color:var(--t)">library.ku.ac.ae/AskUs</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- E-RESOURCES -->
+  <div class="panel" id="panel-eresources">
+    <div class="era">
+      <div style="font-size:.78rem;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+        Databases A–Z — <a href="https://library.ku.ac.ae/eresources" target="_blank" style="color:var(--t);font-weight:600">View full list →</a>
+      </div>
+      <div class="abar" id="abar"></div>
+      <div id="dbList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG — UPDATE THESE =====
+const CLAUDE_API = 'https://gentle-grass-ee53.nikeshn.workers.dev/claude'; // Your Cloudflare Worker
+const VID        = '971KUOSTAR_INST:KU';
+const BASE       = 'https://khalifa.primo.exlibrisgroup.com/discovery/search';
+const AI_URL     = 'https://khalifa.primo.exlibrisgroup.com/discovery/researchAssistant?vid=971KUOSTAR_INST:KU&query=';
+const ERESOURCES = 'https://library.ku.ac.ae/eresources';
+
+// ===== TABS =====
+function switchTab(t){
+  ['chat','search','guides','services','eresources'].forEach((n,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',n===t);
+    const p=document.getElementById('panel-'+n);
+    p.classList.toggle('active',n===t);
+    p.style.display=n===t?'flex':'none';
+  });
+}
+['chat','search','guides','services','eresources'].forEach(n=>{
+  document.getElementById('panel-'+n).style.display=n==='chat'?'flex':'none';
+});
+
+// ===== PRIMO URL BUILDERS =====
+function yearFacet(yf,yt){if(!yf&&!yt)return null;return`searchcreationdate,include,${yf||'0001'}|,|${yt||'9999'}`;}
+function mkURL(bool,tab,scope,facets){
+  let url=`${BASE}?query=any,contains,${encodeURIComponent(bool)},AND&tab=${tab}&search_scope=${scope}&vid=${VID}&lang=en&mode=advanced&offset=0`;
+  for(const f of facets)url+=`&facet=${f}`;return url;
+}
+function buildSearchCard(bool,explanation,corrected,raw,yf,yt,pr,oa,ol){
+  const yr=yearFacet(yf,yt);
+  const artF=[...(pr?['tlevel,include,peer_reviewed']:[]),...(oa?['tlevel,include,open_access']:[]),...(ol?['tlevel,include,online_resources']:[]),...(yr?[yr]:[]),'rtype,include,articles'];
+  const allF=[...(pr?['tlevel,include,peer_reviewed']:[]),...(oa?['tlevel,include,open_access']:[]),...(ol?['tlevel,include,online_resources']:[]),...(yr?[yr]:[])];
+  const bkF=[...(yr?[yr]:[]),'rtype,include,books'];
+  const urlAll=mkURL(bool,'Everything','MyInst_and_CI',allF);
+  const urlArt=mkURL(bool,'CentralIndex','CentralIndex',artF);
+  const urlBk=mkURL(bool,'Everything','MyInst_and_CI',bkF);
+  const simpleQ=bool.replace(/[()"]/g,'').replace(/\b(AND|OR)\b/g,' ').replace(/\s+/g,' ').trim();
+  const urlAI=AI_URL+encodeURIComponent(simpleQ);
+  const corrNote=corrected&&corrected.toLowerCase()!==(raw||'').toLowerCase()?`<div style="font-size:.73rem;color:#92400e;background:#fef3c7;padding:4px 8px;border-radius:6px;margin-bottom:6px">✏️ <em>${raw}</em> → <strong>${corrected}</strong></div>`:'';
+  const filters=[pr?'🔬 Peer Reviewed':'',oa?'🔓 Open Access':'',(yf||yt)?`📅 ${yf||'any'}–${yt||'now'}`:''].filter(Boolean).join(' · ');
+  return`<div class="scard"><div class="scard-title">🔍 PRIMO Search</div>${corrNote}<div style="font-size:.74rem;color:var(--mu);font-style:italic;margin-bottom:4px">${explanation}</div><div class="bool-str">${bool}</div>${filters?`<div style="font-size:.72rem;color:var(--ku-gold);margin-bottom:6px;font-weight:600">${filters}</div>`:''}<div class="slinks"><a class="slink all" href="${urlAll}" target="_blank">📚 All Resources</a><a class="slink art" href="${urlArt}" target="_blank">📄 Articles & Papers</a><a class="slink bk" href="${urlBk}" target="_blank">📗 Books</a><a class="slink ai" href="${urlAI}" target="_blank">🤖 PRIMO AI Research Assistant</a></div></div>`;
+}
+
+// ===== BOOLEAN BUILDER =====
+async function buildBoolean(query,history){
+  const context=history.slice(-6).map(m=>`${m.role}: ${m.content}`).join('\n');
+  const resp=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,messages:[{role:'user',content:`Fix spelling and build a PRIMO advanced search Boolean query.\n\nConversation context:\n${context}\n\nCurrent request: "${query}"\n\nUse context to understand the full topic. Return ONLY raw JSON (no markdown):\n{"corrected":"fixed input","boolean":"(term OR term) AND (term OR term)","natural":"friendly 1-2 sentence description","type":"articles|books|all","year_from":"YYYY or empty","year_to":"YYYY or empty","peer_reviewed":false,"open_access":false,"online_only":false,"explanation":"one sentence"}\n\nRules: AND between concepts, OR between synonyms, parentheses, double quotes for phrases, 2-3 concepts, 2-3 synonyms each.`}]})});
+  if(resp.status===429)throw new Error('rate_limited');
+  if(!resp.ok)throw new Error('api_error');
+  const d=await resp.json();const txt=d.content?.[0]?.text||'';
+  const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
+  if(s===-1)throw new Error('no_json');
+  return JSON.parse(txt.substring(s,e+1));
+}
+function fallbackExtract(q){
+  const bool=q.replace(/\b(i want|find|show|get|need|please|articles?|papers?|books?|peer.?reviewed?|open.?access|from|to|between|after|before|\d{4})\b/gi,'').replace(/\s+/g,' ').trim()||q;
+  const yfM=q.match(/(?:from|after|since)\s+(\d{4})/i),ytM=q.match(/(?:to|until|before)\s+(\d{4})/i);
+  return{boolean:bool,corrected:q,natural:'Searching for: '+bool,explanation:'Basic extraction',year_from:yfM?.[1]||'',year_to:ytM?.[1]||'',peer_reviewed:/peer.?review|scholarly/i.test(q),open_access:/open.?access/i.test(q),online_only:false,type:'all'};
+}
+
+// ===== DB LIST =====
+const DB_LIST=['sciencedirect','science direct','ieee','scopus','web of science','springer','nature journal','wiley','taylor francis','taylor & francis','pubmed','embase','cinahl','clinicalkey','cochrane','uptodate','up to date','acm digital','scifinder','scival','jstor','proquest','emerald','knovel','ebsco','elsevier','ebook central','ovid','refworks','mathscinet','jove','astm','asce','asme','arxiv','zendy','mdpi','lecturio','linkedin learning','al manhal','almanhal','rsc journal','earthdoc','onepetro','optica','iopscience','cambridge core','oxford reference','business source','academic search','engineering source','applied science','inspec','georef','aiaa','aip journal','aps journal','medline','health research','database','e-resource','eresource'];
+function isDBQuery(msg){const l=msg.toLowerCase();return DB_LIST.some(d=>l.includes(d));}
+
+// ===== ROUTER =====
+const SEARCH_RE=/\b(find|search for|look for|show me|get me|i need|i want)\b.*(article|book|paper|journal|research|literature|publication)/i;
+const LIBRARY_RE=/room|booking|reserve|hours|open|closed|ill|interlibrary|loan|account|fine|fee|renew|return|borrow|orcid|khazna|open access|publish|apc|newsletter|tour|visit|alumni|ask a librarian|contact/i;
+async function routeQuery(msg,history){
+  if(isDBQuery(msg))return'library';
+  if(SEARCH_RE.test(msg))return'search';
+  if(LIBRARY_RE.test(msg))return'library';
+  try{
+    const context=history.slice(-4).map(m=>`${m.role}: ${m.content}`).join('\n');
+    const r=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:100,messages:[{role:'user',content:`Route this library chatbot message. Context:\n${context}\n\nMessage: "${msg}"\n\nReturn ONLY: {"intent":"search|library|general|clarify"}\n\nsearch=find books/articles, library=services/rooms/hours/ILL/account, general=factual question, clarify=ambiguous topic`}]})});
+    const d=await r.json();const txt=d.content?.[0]?.text||'';
+    const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
+    return JSON.parse(txt.substring(s,e+1)).intent||'general';
+  }catch(e){return'general';}
+}
+
+// ===== AGENTS =====
+const LIBRARY_SYS=`You are the KU Library Assistant. Answer library service questions in 2-3 sentences with relevant links. NEVER mention proxy, on-campus or off-campus. For any database question always say: see https://library.ku.ac.ae/eresources\nServices: Rooms: https://library.ku.ac.ae/rooms/ | ILL: https://library.ku.ac.ae/ill/ | Account: https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU | OA: https://library.ku.ac.ae/oa/ | Ask: https://library.ku.ac.ae/AskUs`;
+const GENERAL_SYS=`You are a knowledgeable assistant. Answer factually in 3-5 sentences. End with: "Would you like me to find books or articles on this topic from KU Library?"`;
+async function callAgent(sys,history){
+  const r=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,system:sys,messages:history})});
+  if(!r.ok)throw new Error('agent_error');
+  const d=await r.json();return d.content?.[0]?.text||'';
+}
+
+// ===== CHAT =====
+let chatHist=[];
+function clearChat(){
+  chatHist=[];
+  document.getElementById('chatMsgs').innerHTML=`<div class="msg bot"><div class="av">🤖</div><div class="bub">Hello! I'm the <strong>KU Library AI Assistant</strong> 👋<br><br>Ask me anything — for books and articles I'll build a smart Boolean search and open PRIMO for you instantly!</div></div>`;
+  document.getElementById('chips').style.display='flex';
+}
+async function sendChat(){
+  const inp=document.getElementById('chatIn');
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';addMsg('user',msg);
+  document.getElementById('chips').style.display='none';
+  const cm=document.getElementById('chatMsgs');
+  chatHist.push({role:'user',content:String(msg)});
+  if(isDBQuery(msg)){
+    addMsg('bot',`For all KU Library databases and access links, visit:<br><br>📋 <a href="${ERESOURCES}" target="_blank"><strong>library.ku.ac.ae/eresources</strong></a>`);
+    chatHist.push({role:'assistant',content:`See ${ERESOURCES}`});
+    showFollowUps('library');return;
+  }
+  const tid='ty'+Date.now();
+  const te=document.createElement('div');te.className='msg bot';te.id=tid;
+  te.innerHTML=`<div class="av">🤖</div><div class="bub"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  cm.appendChild(te);cm.scrollTop=cm.scrollHeight;
+  try{
+    const intent=await routeQuery(msg,chatHist);
+    document.getElementById(tid)?.remove();
+    if(intent==='search'){
+      const loadEl=document.createElement('div');loadEl.className='msg bot';loadEl.style.maxWidth='96%';
+      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="typing" style="padding:8px 0"><span></span><span></span><span></span></div><div style="font-size:.8rem;color:var(--mu)">Building search query…</div></div>`;
+      cm.appendChild(loadEl);cm.scrollTop=cm.scrollHeight;
+      let p;try{p=await buildBoolean(msg,chatHist);}catch(e){p=fallbackExtract(msg);}
+      const{boolean:bool,corrected,natural,explanation,year_from:yf,year_to:yt,peer_reviewed:pr,open_access:oa,online_only:ol}=p;
+      const confirmId='c'+Date.now();
+      const filters=[pr?'🔬 Peer Reviewed':'',oa?'🔓 Open Access':'',(yf||yt)?`📅 ${yf||'any'}–${yt||'now'}`:''].filter(Boolean).join(' · ');
+      loadEl.innerHTML=`<div class="av">🔍</div><div class="scard"><div class="scard-title">🤔 Is this what you're looking for?</div><div class="confirm-box">${natural||explanation}</div><div style="font-size:.72rem;font-weight:700;color:var(--mu);margin-bottom:3px">Boolean query:</div><div class="bool-str">${bool}</div>${filters?`<div style="font-size:.72rem;color:var(--ku-gold);font-weight:600;margin-bottom:4px">${filters}</div>`:''}<div class="confirm-btns"><button class="cbtn yes" onclick="confirmSearch('${confirmId}')">✅ Yes, search this</button><button class="cbtn refine" onclick="refineSearch('${confirmId}')">✏️ Refine query</button></div><div id="${confirmId}_links"></div></div>`;
+      window._ps=window._ps||{};window._ps[confirmId]={bool,explanation,natural,corrected,msg,yf,yt,pr,oa,ol};
+      chatHist.push({role:'assistant',content:`I interpreted your search as: ${natural||explanation}`});
+      cm.scrollTop=cm.scrollHeight;showFollowUps('search');
+    }else if(intent==='library'){
+      const reply=await callAgent(LIBRARY_SYS,chatHist);
+      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply));showFollowUps('library');
+    }else if(intent==='clarify'){
+      const topic=msg.replace(/\b(what is|tell me about|explain|about|i want to know)\b/gi,'').trim()||msg;
+      const html=`I can help with <strong>${topic}</strong>! What would you like?<div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><button onclick="chip('Find articles and books on ${topic}')" style="padding:8px 12px;background:var(--ku-blue);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🔍 Find in KU Library</button><button onclick="chip('Explain ${topic} in detail')" style="padding:8px 12px;background:#f0f4f8;color:var(--ku-blue);border:1.5px solid var(--ku-blue);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">💡 Give me a general explanation</button><button onclick="chip('What KU databases cover ${topic}')" style="padding:8px 12px;background:#fff;color:var(--mu);border:1.5px solid var(--br);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🗄️ Which KU databases cover this?</button></div>`;
+      chatHist.push({role:'assistant',content:`What would you like to know about ${topic}?`});
+      const el=document.createElement('div');el.className='msg bot';
+      el.innerHTML=`<div class="av">🤖</div><div class="bub">${html}</div>`;
+      cm.appendChild(el);cm.scrollTop=cm.scrollHeight;
+    }else{
+      const reply=await callAgent(GENERAL_SYS,chatHist);
+      chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply));showFollowUps('general');
+    }
+  }catch(e){
+    document.getElementById(tid)?.remove();
+    addMsg('bot','⚠️ Connection error. Please try again.');
+  }
+}
+function confirmSearch(id){
+  const d=window._ps?.[id];if(!d)return;
+  const el=document.getElementById(id+'_links');
+  if(el)el.innerHTML=buildSearchCard(d.bool,d.explanation,d.corrected,d.msg,d.yf,d.yt,d.pr,d.oa,d.ol);
+  const card=el?.closest('.scard');
+  if(card){card.querySelector('.scard-title').textContent='🔍 PRIMO Search Ready';const bb=card.querySelector('.confirm-btns');if(bb)bb.style.display='none';}
+  document.getElementById('chatMsgs').scrollTop=9999;
+  chatHist.push({role:'assistant',content:`Search confirmed: ${d.bool}`});
+}
+function refineSearch(id){addMsg('bot','Sure! Tell me how to refine — add a year range, change the topic, or add "peer reviewed".');}
+function chip(t){document.getElementById('chatIn').value=t;sendChat();}
+function showFollowUps(intent){
+  const cm=document.getElementById('chatMsgs');
+  const qs=intent==='search'?['Make it peer reviewed','Limit to 2020 onwards','Find books instead']:
+    intent==='library'?['How do I access resources?','What databases does KU have?','How do I reserve a room?']:
+    intent==='general'?['Find articles on this topic','Find books on this topic','What KU databases cover this?']:
+    ['Find articles on this topic','How do I access resources?','What databases does KU have?'];
+  const d=document.createElement('div');d.className='followups';
+  d.innerHTML=qs.map(q=>`<button class="fq" onclick="chip('${q}')">${q}</button>`).join('');
+  cm.appendChild(d);cm.scrollTop=9999;
+}
+function addMsg(role,html){
+  if(!html?.trim())return;
+  const cm=document.getElementById('chatMsgs');
+  const el=document.createElement('div');el.className=`msg ${role}`;
+  el.innerHTML=`<div class="av">${role==='bot'?'🤖':'👤'}</div><div class="bub">${html}</div>`;
+  cm.appendChild(el);cm.scrollTop=9999;
+}
+function fmt(t){return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>').replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>').replace(/\n/g,'<br>');}
+
+// ===== SEARCH TAB =====
+async function doSearch(){
+  const q=document.getElementById('sIn').value.trim();
+  if(!q){alert('Please enter a search term');return;}
+  let pr=document.getElementById('sPR').checked,oa=document.getElementById('sOA').checked,
+    ol=document.getElementById('sOL').checked,yf=document.getElementById('sYF').value.trim(),yt=document.getElementById('sYT').value.trim();
+  document.getElementById('sResults').innerHTML='';document.getElementById('sStatus').textContent='⏳ Building Boolean query…';
+  let p;try{p=await buildBoolean(q,chatHist);}catch(e){p=fallbackExtract(q);}
+  if(p.year_from){yf=p.year_from;document.getElementById('sYF').value=yf;}
+  if(p.year_to){yt=p.year_to;document.getElementById('sYT').value=yt;}
+  if(p.peer_reviewed){pr=true;document.getElementById('sPR').checked=true;}
+  if(p.open_access){oa=true;document.getElementById('sOA').checked=true;}
+  if(p.online_only){ol=true;document.getElementById('sOL').checked=true;}
+  document.getElementById('sStatus').textContent='';
+  document.getElementById('sResults').innerHTML=buildSearchCard(p.boolean||q,p.explanation||'',p.corrected||q,q,yf,yt,pr,oa,ol);
+}
+
+// ===== E-RESOURCES =====
+const dbs=[
+  {l:'A',name:'Academic Search Ultimate',desc:'10,000+ academic journals across sciences, arts and social sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=asn'},
+  {l:'A',name:'ACM Digital Library',desc:'Full-text ACM publications — journals, conference proceedings and books.',url:'https://khalifa.idm.oclc.org/login?url=http://dl.acm.org'},
+  {l:'A',name:'ACS (American Chemical Society)',desc:'Core ACS journals in catalysis, chemical biology and analytical chemistry.',url:'https://khalifa.idm.oclc.org/login?url=https://pubs.acs.org'},
+  {l:'A',name:'AIAA',desc:'Eight technical journals in aerospace science and technology.',url:'https://khalifa.idm.oclc.org/login?url=https://arc.aiaa.org/'},
+  {l:'A',name:'AIP (American Institute of Physics)',desc:'Applied Physics Letters, Journal of Chemical Physics, Physics of Fluids, and more.',url:'https://khalifa.idm.oclc.org/login?url=https://aip.scitation.org'},
+  {l:'A',name:'Al Manhal / المنهل',desc:'Scholarly publications from the Middle East, Africa and Asia in Arabic.',url:'https://khalifa.idm.oclc.org/login?url=https://platform.almanhal.com'},
+  {l:'A',name:'Applied Science & Technology Source',desc:'1,200 journals in applied sciences, computing and conference proceedings.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=aps'},
+  {l:'A',name:'APS Journals with PROLA',desc:'Full-text access to all American Physical Society journals.',url:'https://khalifa.idm.oclc.org/login?url=https://journals.aps.org'},
+  {l:'A',name:'arXiv.org',desc:'Open access archive for physics, math, CS and quantitative biology.',url:'https://arxiv.org/'},
+  {l:'A',name:'ASCE Library',desc:'ASCE journals and proceedings in civil and structural engineering.',url:'https://khalifa.idm.oclc.org/login?url=https://ascelibrary.org'},
+  {l:'A',name:'ASME Digital Library',desc:'ASME transaction journals and e-books in mechanical engineering.',url:'https://khalifa.idm.oclc.org/login?url=https://asmedigitalcollection.asme.org'},
+  {l:'A',name:'ASTM Compass',desc:'Standards and technical engineering information across all disciplines.',url:'https://khalifa.idm.oclc.org/login?url=https://secure.astm.org/login'},
+  {l:'B',name:'Business Source Complete',desc:'1,100+ business publications with backfiles to 1985.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=bsh'},
+  {l:'C',name:'Cambridge Core',desc:'Scholarly books, journals and reference works from Cambridge University Press.',url:'https://khalifa.idm.oclc.org/login?url=https://www.cambridge.org/core/'},
+  {l:'C',name:'CINAHL Ultimate',desc:'Full-text database for nursing and allied health research.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=cul'},
+  {l:'C',name:'ClinicalKey Student',desc:'Medical texts, journals, guidelines, drug info and videos for 30+ specialties.',url:'https://khalifa.idm.oclc.org/login?url=https://www.clinicalkey.com/student/login'},
+  {l:'C',name:'Cochrane Library',desc:'Systematic reviews in healthcare including CDSR, DARE and CCTR.',url:'https://khalifa.idm.oclc.org/login?url=https://www.cochranelibrary.com'},
+  {l:'E',name:'EarthDoc',desc:'75,000+ articles in geoscience, geophysics and engineering.',url:'https://khalifa.idm.oclc.org/login?url=https://www.earthdoc.org'},
+  {l:'E',name:'Ebook Central (ProQuest)',desc:'Broad authoritative academic eBook content.',url:'https://khalifa.idm.oclc.org/login?url=https://ebookcentral.proquest.com/lib/khalifa'},
+  {l:'E',name:'EBSCO Suite',desc:'Academic Search Ultimate, Engineering Source, ERIC, GeoRef, INSPEC, and more.',url:'https://khalifa.idm.oclc.org/login?url=http://search.ebscohost.com'},
+  {l:'E',name:'Embase',desc:'32 million records in biomedical literature, drugs and clinical medicine.',url:'https://khalifa.idm.oclc.org/login?url=https://www.embase.com'},
+  {l:'E',name:'Emerald Insight',desc:'Peer-reviewed journals in healthcare, management and business.',url:'https://khalifa.idm.oclc.org/login?url=https://www.emerald.com/insight'},
+  {l:'G',name:'GCC Statistical Centre',desc:'Official statistics for Gulf Cooperation Council member states.',url:'https://gccstat.org/en/'},
+  {l:'G',name:'GeoScience World',desc:'Comprehensive peer-reviewed geosciences research integrated with GeoRef.',url:'https://khalifa.idm.oclc.org/login?url=https://pubs.geoscienceworld.org/'},
+  {l:'I',name:'IEEE Xplore Digital Library',desc:'Full-text IEEE and IET journals, conference proceedings and standards.',url:'https://khalifa.idm.oclc.org/login?url=https://ieeexplore.ieee.org/Xplore/dynhome.jsp'},
+  {l:'I',name:'IOPScience (Institute of Physics)',desc:'70 journals in physics including materials science and astrophysics.',url:'https://khalifa.idm.oclc.org/login?url=https://iopscience.iop.org'},
+  {l:'J',name:'Journal Citation Reports',desc:'Evaluate journal impact factors via Web of Science.',url:'https://khalifa.idm.oclc.org/login?url=http://www.webofscience.com'},
+  {l:'J',name:'JoVE',desc:'Educational video database for laboratory fundamentals.',url:'https://khalifa.idm.oclc.org/login?url=https://www.jove.com'},
+  {l:'J',name:'JSTOR',desc:'Archival journals in Arts and Sciences Collections.',url:'https://khalifa.idm.oclc.org/login?url=https://www.jstor.org'},
+  {l:'K',name:'Knovel',desc:'Full-text engineering reference books with interactive analytic tools.',url:'https://khalifa.idm.oclc.org/login?url=https://app.knovel.com/kn'},
+  {l:'L',name:'LinkedIn Learning',desc:'200,000+ video tutorials on computing, business and management.',url:'https://www.linkedin.com/learning/'},
+  {l:'M',name:'MathSciNet',desc:'Reviews and bibliographic info for mathematical sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=msn'},
+  {l:'M',name:'MDPI Open Access',desc:'386 open access peer-reviewed journals across all disciplines.',url:'https://www.mdpi.com/about/journals'},
+  {l:'M',name:'Medline Ultimate',desc:'Full-text MEDLINE with 2,500 active biomedical journals.',url:'https://khalifa.idm.oclc.org/login?url=https://search.ebscohost.com/login.aspx?authtype=ip,uid&profile=ehost&defaultdb=mdl'},
+  {l:'N',name:'Nature Journals',desc:'All Nature-branded journals in biotechnology, chemistry, medicine and physics.',url:'https://khalifa.idm.oclc.org/login?url=https://www.nature.com/index.html'},
+  {l:'O',name:'OnePetro',desc:'Technical literature for oil and gas exploration and production.',url:'https://khalifa.idm.oclc.org/login?url=https://www.onepetro.org/'},
+  {l:'O',name:'Optica Publishing Group',desc:'Largest collection of optics and photonics peer-reviewed content.',url:'https://khalifa.idm.oclc.org/login?url=https://opg.optica.org/default.cfm'},
+  {l:'O',name:"O'Reilly Books",desc:'24,000+ full-text books and videos on IT and business.',url:'https://khalifa.idm.oclc.org/login?url=https://www.oreilly.com/library-access/'},
+  {l:'P',name:'ProQuest Databases',desc:'19,000+ periodical titles across 160+ subject areas.',url:'https://khalifa.idm.oclc.org/login?url=https://search.proquest.com/?accountid=174135'},
+  {l:'P',name:'ProQuest Dissertations & Theses',desc:'3 million+ thesis abstracts, approximately half in full text.',url:'https://khalifa.idm.oclc.org/login?url=https://www.proquest.com/pqdtglobal'},
+  {l:'P',name:'PubMed @ KU',desc:'29 million+ biomedical citations linked to KU subscriptions and ILL.',url:'https://www.ncbi.nlm.nih.gov/pubmed/?otool=iaekustlib'},
+  {l:'R',name:'RSC Journals',desc:'51 Royal Society of Chemistry journals with backfiles from 2008.',url:'https://khalifa.idm.oclc.org/login?url=https://pubs.rsc.org/'},
+  {l:'S',name:'ScienceDirect (Elsevier)',desc:'Elsevier journals from 1995 in engineering, CS, materials and health sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://www.sciencedirect.com'},
+  {l:'S',name:'SciFindern',desc:'Comprehensive chemistry research — references, substances and reactions.',url:'https://khalifa.idm.oclc.org/login?url=https://scifinder-n.cas.org'},
+  {l:'S',name:'SciVal',desc:'Research performance analytics and benchmarking tool.',url:'https://khalifa.idm.oclc.org/login?url=https://scival.com/'},
+  {l:'S',name:'Scopus',desc:'Index for 20,000+ journals in physical, health, life and social sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://www.scopus.com/home.url'},
+  {l:'S',name:'Springer',desc:'Full-text books 2005–2024 and 1,342 journals from 1997 across all disciplines.',url:'https://khalifa.idm.oclc.org/login?url=https://link.springer.com'},
+  {l:'T',name:'Taylor & Francis Online',desc:'1,589 journals in science, technology, social sciences and humanities.',url:'https://khalifa.idm.oclc.org/login?url=https://www.tandfonline.com/'},
+  {l:'U',name:'UpToDate',desc:'Evidence-based point-of-care clinical resource with free mobile app.',url:'https://khalifa.idm.oclc.org/login?url=https://www.uptodate.com/'},
+  {l:'W',name:'Web of Science',desc:'11,000+ journals in sciences, social sciences, arts and humanities.',url:'https://khalifa.idm.oclc.org/login?url=https://www.webofscience.com'},
+  {l:'W',name:'Wiley Online Library',desc:'Multidisciplinary collection covering life, health, physical and social sciences.',url:'https://khalifa.idm.oclc.org/login?url=https://onlinelibrary.wiley.com'},
+  {l:'Z',name:'Zendy AI Research Library',desc:'AI-powered research library with ZAIA assistant and summarization.',url:'https://zendy.io/'}
+];
+function buildDB(f){
+  const letters=[...new Set(dbs.map(d=>d.l))].sort();
+  document.getElementById('abar').innerHTML=`<button class="abtn ${!f?'active':''}" onclick="buildDB('')">All</button>`+letters.map(l=>`<button class="abtn ${f===l?'active':''}" onclick="buildDB('${l}')">${l}</button>`).join('');
+  const filtered=f?dbs.filter(d=>d.l===f):dbs;const g={};
+  filtered.forEach(d=>{if(!g[d.l])g[d.l]=[];g[d.l].push(d);});
+  document.getElementById('dbList').innerHTML=Object.keys(g).sort().map(l=>`<div class="dg"><h2>${l}</h2>${g[l].map(d=>`<div class="di"><h4>${d.name}</h4><p>${d.desc}</p><a href="${d.url}" target="_blank">Access →</a></div>`).join('')}</div>`).join('');
+}
+buildDB('');
+</script>
+</body>
+</html>
