@@ -162,12 +162,11 @@ header{background:var(--ku-blue);color:#fff;padding:10px 16px;display:flex;align
       </div></div>
     </div>
     <div class="chips" id="chips">
-      <div class="chip" onclick="chip('Find peer reviewed articles on AI in healthcare')">🤖 AI in healthcare</div>
-      <div class="chip" onclick="chip('I need books on renewable energy')">⚡ Renewable energy</div>
-      <div class="chip" onclick="chip('Find open access articles on climate change')">🔓 Open access</div>
+      <div class="chip" onclick="chip('I want to find articles')">📄 Find articles</div>
+      <div class="chip" onclick="chip('I want to find books')">📗 Find books</div>
       <div class="chip" onclick="chip('What are the library hours?')">⏰ Library hours</div>
-      <div class="chip" onclick="chip('How do I reserve a study room?')">🚪 Book a room</div>
-      <div class="chip" onclick="chip('How do I publish open access at KU?')">📤 OA publishing</div>
+      <div class="chip" onclick="chip('How do I reserve a study room?')">🚪 Room booking</div>
+      <div class="chip" onclick="chip('How do I publish open access at Khalifa University?')">📤 OA publishing support</div>
     </div>
     <div class="cin">
       <button class="clr" onclick="clearChat()">🗑️ Clear</button>
@@ -397,7 +396,7 @@ function buildSearchCard(bool,explanation,corrected,raw,yf,yt,pr,oa,ol){
 // =================================================================
 async function buildBoolean(query,history){
   const context=history.slice(-6).map(m=>`${m.role}: ${m.content}`).join('\n');
-  const prompt=`Fix spelling and build a PRIMO advanced search Boolean query.\n\nConversation context:\n${context}\n\nCurrent request: "${query}"\n\nUse context to understand the full topic. Return ONLY raw JSON (no markdown):\n{"corrected":"fixed input","boolean":"(term OR term) AND (term OR term)","natural":"friendly 1-2 sentence description","type":"articles|books|all","year_from":"YYYY or empty","year_to":"YYYY or empty","peer_reviewed":false,"open_access":false,"online_only":false,"explanation":"one sentence"}\n\nRules: AND between concepts, OR between synonyms, parentheses, double quotes for phrases, 2-3 concepts, 2-3 synonyms each.`;
+  const prompt=`You are helping build search queries for Khalifa University (KU) Library PRIMO system in Abu Dhabi, UAE. KU means Khalifa University, NOT Kuwait University.\n\nFix spelling and build a PRIMO advanced search Boolean query.\n\nConversation context:\n${context}\n\nCurrent request: "${query}"\n\nUse context to understand the full topic. Return ONLY raw JSON (no markdown):\n{"corrected":"fixed input","boolean":"(term OR term) AND (term OR term)","natural":"friendly 1-2 sentence description","type":"articles|books|all","year_from":"YYYY or empty","year_to":"YYYY or empty","peer_reviewed":false,"open_access":false,"online_only":false,"explanation":"one sentence"}\n\nRules: AND between concepts, OR between synonyms, parentheses, double quotes for phrases, 2-3 concepts, 2-3 synonyms each.`;
   const txt=await callLLM({messages:[{role:'user',content:prompt}],max_tokens:500});
   const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
   if(s===-1)throw new Error('no_json');
@@ -426,7 +425,7 @@ async function routeQuery(msg,history){
   if(LIBRARY_RE.test(msg))return'library';
   try{
     const context=history.slice(-4).map(m=>`${m.role}: ${m.content}`).join('\n');
-    const prompt=`Route this library chatbot message. Context:\n${context}\n\nMessage: "${msg}"\n\nReturn ONLY: {"intent":"search|library|general|clarify"}\n\nsearch=find books/articles, library=services/rooms/hours/ILL/account, general=factual question, clarify=ambiguous topic`;
+    const prompt=`Route this Khalifa University (KU) Library chatbot message. KU means Khalifa University in Abu Dhabi, UAE. Context:\n${context}\n\nMessage: "${msg}"\n\nReturn ONLY: {"intent":"search|library|general|clarify"}\n\nsearch=find books/articles, library=services/rooms/hours/ILL/account, general=factual question, clarify=ambiguous topic`;
     const txt=await callLLM({messages:[{role:'user',content:prompt}],max_tokens:100});
     const s=txt.indexOf('{'),e=txt.lastIndexOf('}');
     return JSON.parse(txt.substring(s,e+1)).intent||'general';
@@ -436,8 +435,8 @@ async function routeQuery(msg,history){
 // =================================================================
 // AGENTS
 // =================================================================
-const LIBRARY_SYS=`You are the KU Library Assistant. Answer library service questions in 2-3 sentences with relevant links. NEVER mention proxy, on-campus or off-campus. For any database question always say: see https://library.ku.ac.ae/eresources\nFor library hours questions, direct users to: https://library.ku.ac.ae/hours\nServices: Rooms: https://library.ku.ac.ae/rooms/ | ILL: https://library.ku.ac.ae/ill/ | Account: https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU | OA: https://library.ku.ac.ae/oa/ | Ask: https://library.ku.ac.ae/AskUs | Hours: https://library.ku.ac.ae/hours`;
-const GENERAL_SYS=`You are a knowledgeable assistant. Answer factually in 3-5 sentences. End with: "Would you like me to find books or articles on this topic from KU Library?"`;
+const LIBRARY_SYS=`You are the Khalifa University (KU) Library Assistant in Abu Dhabi, UAE. IMPORTANT: KU means Khalifa University, NOT Kuwait University. Answer library service questions in 2-3 sentences with relevant links. NEVER mention proxy, on-campus or off-campus. For any database question always say: see https://library.ku.ac.ae/eresources\nFor library hours questions, direct users to: https://library.ku.ac.ae/hours\nServices: Rooms: https://library.ku.ac.ae/rooms/ | ILL: https://library.ku.ac.ae/ill/ | Account: https://khalifa.primo.exlibrisgroup.com/discovery/account?vid=971KUOSTAR_INST:KU | OA: https://library.ku.ac.ae/oa/ | Ask: https://library.ku.ac.ae/AskUs | Hours: https://library.ku.ac.ae/hours`;
+const GENERAL_SYS=`You are the Khalifa University (KU) Library Assistant in Abu Dhabi, UAE. IMPORTANT: KU means Khalifa University, NOT Kuwait University. Answer factually in 3-5 sentences. End with: "Would you like me to find books or articles on this topic from Khalifa University Library?"`;
 
 async function callAgent(sys,history){
   return await callLLM({system:sys,messages:history,max_tokens:300});
@@ -460,9 +459,22 @@ async function sendChat(){
   const cm=document.getElementById('chatMsgs');
   chatHist.push({role:'user',content:String(msg)});
   if(isDBQuery(msg)){
-    addMsg('bot',`For all KU Library databases and access links, visit:<br><br>📋 <a href="${ERESOURCES}" target="_blank"><strong>library.ku.ac.ae/eresources</strong></a> ${getModelBadge()}`);
+    addMsg('bot',`For all Khalifa University Library databases and access links, visit:<br><br>📋 <a href="${ERESOURCES}" target="_blank"><strong>library.ku.ac.ae/eresources</strong></a> ${getModelBadge()}`);
     chatHist.push({role:'assistant',content:`See ${ERESOURCES}`});
     showFollowUps('library');return;
+  }
+  // Handle generic "find articles" or "find books" without a topic
+  const genericArticles=/^i?\s*(want to |would like to )?(find|search|look for|need)\s*(some\s+)?(articles?|papers?|journals?)\s*$/i;
+  const genericBooks=/^i?\s*(want to |would like to )?(find|search|look for|need)\s*(some\s+)?(books?|ebooks?|textbooks?)\s*$/i;
+  if(genericArticles.test(msg)){
+    addMsg('bot',`Sure! What subject or topic would you like me to find articles on? ${getModelBadge()}<br><br><span style="font-size:.78rem;color:var(--mu)">For example: <em>"AI in healthcare"</em>, <em>"renewable energy"</em>, <em>"machine learning"</em></span>`);
+    chatHist.push({role:'assistant',content:'What subject or topic would you like me to find articles on?'});
+    return;
+  }
+  if(genericBooks.test(msg)){
+    addMsg('bot',`Sure! What subject or topic would you like me to find books on? ${getModelBadge()}<br><br><span style="font-size:.78rem;color:var(--mu)">For example: <em>"data science"</em>, <em>"structural engineering"</em>, <em>"quantum physics"</em></span>`);
+    chatHist.push({role:'assistant',content:'What subject or topic would you like me to find books on?'});
+    return;
   }
   const tid='ty'+Date.now();
   const te=document.createElement('div');te.className='msg bot';te.id=tid;
@@ -488,7 +500,7 @@ async function sendChat(){
       chatHist.push({role:'assistant',content:reply});addMsg('bot',fmt(reply)+' '+getModelBadge());showFollowUps('library');
     }else if(intent==='clarify'){
       const topic=msg.replace(/\b(what is|tell me about|explain|about|i want to know)\b/gi,'').trim()||msg;
-      const html=`I can help with <strong>${topic}</strong>! What would you like? ${getModelBadge()}<div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><button onclick="chip('Find articles and books on ${topic}')" style="padding:8px 12px;background:var(--ku-blue);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🔍 Find in KU Library</button><button onclick="chip('Explain ${topic} in detail')" style="padding:8px 12px;background:#f0f4f8;color:var(--ku-blue);border:1.5px solid var(--ku-blue);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">💡 Give me a general explanation</button><button onclick="chip('What KU databases cover ${topic}')" style="padding:8px 12px;background:#fff;color:var(--mu);border:1.5px solid var(--br);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🗄️ Which KU databases cover this?</button></div>`;
+      const html=`I can help with <strong>${topic}</strong>! What would you like? ${getModelBadge()}<div style="display:flex;flex-direction:column;gap:7px;margin-top:10px"><button onclick="chip('Find articles and books on ${topic}')" style="padding:8px 12px;background:var(--ku-blue);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🔍 Find in Khalifa University Library</button><button onclick="chip('Explain ${topic} in detail')" style="padding:8px 12px;background:#f0f4f8;color:var(--ku-blue);border:1.5px solid var(--ku-blue);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">💡 Give me a general explanation</button><button onclick="chip('What Khalifa University databases cover ${topic}')" style="padding:8px 12px;background:#fff;color:var(--mu);border:1.5px solid var(--br);border-radius:10px;cursor:pointer;font-weight:600;font-size:.8rem;text-align:left">🗄️ Which databases cover this?</button></div>`;
       chatHist.push({role:'assistant',content:`What would you like to know about ${topic}?`});
       const el=document.createElement('div');el.className='msg bot';
       el.innerHTML=`<div class="av">🤖</div><div class="bub">${html}</div>`;
@@ -516,9 +528,9 @@ function chip(t){document.getElementById('chatIn').value=t;sendChat();}
 function showFollowUps(intent){
   const cm=document.getElementById('chatMsgs');
   const qs=intent==='search'?['Make it peer reviewed','Limit to 2020 onwards','Find books instead']:
-    intent==='library'?['How do I access resources?','What databases does KU have?','How do I reserve a room?']:
-    intent==='general'?['Find articles on this topic','Find books on this topic','What KU databases cover this?']:
-    ['Find articles on this topic','How do I access resources?','What databases does KU have?'];
+    intent==='library'?['How do I access resources?','What databases does Khalifa University have?','How do I reserve a room?']:
+    intent==='general'?['Find articles on this topic','Find books on this topic','What databases cover this?']:
+    ['Find articles on this topic','How do I access resources?','What databases does Khalifa University have?'];
   const d=document.createElement('div');d.className='followups';
   d.innerHTML=qs.map(q=>`<button class="fq" onclick="chip('${q}')">${q}</button>`).join('');
   cm.appendChild(d);cm.scrollTop=9999;
